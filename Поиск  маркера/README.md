@@ -3,7 +3,7 @@
 Необходимо открыть 4 терминала
 
 --- 
----- Заходим в докер
+### Заходим в докер
 
     docker start kuka 
     docker exec -it kuka bash 
