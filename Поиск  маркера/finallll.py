@@ -420,7 +420,7 @@ class MoveGroupPythonInterface(object):
         M2_siz = 40.0    
         P_M1_base = np.array([-162.0, -274.0, 2.5]) # центр колибровочного маркера отн-но base frame
 
-        #Детекция ArUco (для моей версии OpenCV 4.2.0) ---
+        #Детекция ArUco (для моей версии OpenCV 4.2.0)
         aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_50)
         parameters = cv2.aruco.DetectorParameters_create()
         corners, ids, rejected = cv2.aruco.detectMarkers(image, aruco_dict, parameters=parameters)
