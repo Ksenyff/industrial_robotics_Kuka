@@ -420,27 +420,27 @@ class MoveGroupPythonInterface(object):
         M2_siz = 40.0    
         P_M1_base = np.array([-162.0, -274.0, 2.5]) # центр колибровочного маркера отн-но base frame
 
-        #Детекция ArUco (для моей версии OpenCV 4.2.0)
+        #детекция ArUco (для моей версии OpenCV 4.2.0)
         aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_50)
         parameters = cv2.aruco.DetectorParameters_create()
         corners, ids, rejected = cv2.aruco.detectMarkers(image, aruco_dict, parameters=parameters)
 
-        #Преобразуем в удобный формат: {id: corners_2d}
+        #преобразуем в удобный формат: {id: corners_2d}
         ids = ids.flatten()
         marker_corners = {}
         for i, marker_id in enumerate(ids):
             # corners[i] имеет форму (1, 4, 2), нужно (4, 2)
             marker_corners[int(marker_id)] = corners[i].reshape(4, 2)
 
-        #Проверка наличия маркеров
+        #проверка наличия маркеров
         required_ids = {3, 8}
         found_ids = set(marker_corners.keys())
         if not required_ids.issubset(found_ids):
             missing = required_ids - found_ids
             raise RuntimeError(f"Required markers not found. Missing: {missing}. Detected: {found_ids}")
 
-        #Поза относительно камеры
-        def estimate_marker_pose(corners_2d, size):
+        #функция поиска позы относительно камеры
+        def marker_pose(corners_2d, size):
             half = size / 2.0
             obj = np.array([
                 [-half,  half, 0],
@@ -459,32 +459,31 @@ class MoveGroupPythonInterface(object):
             if not success:
                 raise RuntimeError("solvePnP failed for marker")
 
-            R, _ = cv2.Rodrigues(rvec) # м-ца поворота 
-            T = np.eye(4) # век-р перемещений
-            T[:3, :3] = R 
-            T[:3, 3] = tvec.flatten() # матрица 4 на 4
+            Rec, _ = cv2.Rodrigues(rvec) # м-ца поворота 
+            M = np.eye(4) 
+            M[:3, :3] = Rec
+            M[:3, 3] = tvec.flatten() # матрица 4 на 4
             return T
 
-        #В системе камеры
-        T_cam_M1 = estimate_marker_pose(marker_corners[3], M1_siz)
-        T_cam_M2 = estimate_marker_pose(marker_corners[8], M2_siz)
+        #в системе камеры
+        M_cam_M1 = marker_pose(marker_corners[3], M1_siz)
+        M_cam_M2 = marker_pose(marker_corners[8], M2_siz)
 
-        #В базе робота
-        T_base_M1 = np.eye(4)
-        T_base_M1[:3, 3] = P_M1_base
+        #в базе робота
+        M_base_M1 = np.eye(4)
+        M_base_M1[:3, 3] = P_M1_base
         
-        #Перемножение матриц 
-        T_base_cam = T_base_M1 @ np.linalg.inv(T_cam_M1) # тип транспонировали
+        #перемножение матриц 
+        M_base_cam = M_base_M1 @ np.linalg.inv(M_cam_M1) # тип транспонировали
 
-        #В базе робота
-        T_base_M2 = T_base_cam @ T_cam_M2
+        #в базе робота
+        M_base_M2 = M_base_cam @ M_cam_M2
 
-        #В метрах
-        x = T_base_M2[0, 3] / 1000.0 
-        y = T_base_M2[1, 3] / 1000.0
-        z = T_base_M2[2, 3] / 1000.0
+        #в метрах
+        x = M_base_M2[0, 3] / 1000.0 
+        y = M_base_M2[1, 3] / 1000.0
 
-        rospy.loginfo(f"Detected M2 at (x={x:.3f}, y={y:.3f}, z={z:.3f}) m in robot base frame")
+        rospy.loginfo(f"Detected M2 at (x={x:.3f}, y={y:.3f}) m in robot base frame")
         return x, y #в метрах
 
 
